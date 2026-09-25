@@ -417,26 +417,31 @@
         
         // Socket.io event handlers
         socket.on('gameCreated', ({ gameId, player }) => {
+            console.log('Game created. ID:', gameId, 'I am player:', player);
             currentGameId = gameId;
             myPlayer = player;
+            onlineGameStarted = false;
             const gameUrl = window.location.origin + '?game=' + gameId;
             linkDisplay.textContent = gameUrl;
             gameSetup.style.display = 'none';
             gameLink.style.display = 'block';
             waitingMessage.style.display = 'block';
             status.textContent = 'Waiting for opponent...';
-            gameActive = false; // Don't allow moves until opponent joins
+            gameActive = false; // Wait for opponent
         });
 
         socket.on('gameJoined', ({ gameId, player }) => {
+            console.log('Joined game. ID:', gameId, 'I am player:', player);
             currentGameId = gameId;
             myPlayer = player;
+            onlineGameStarted = false;
             gameSetup.style.display = 'none';
             gameLink.style.display = 'none';
             status.textContent = 'Game starting...';
         });
 
         socket.on('gameStart', () => {
+            console.log('Game starting! I am player:', myPlayer);
             onlineGameStarted = true;
             gameActive = true;
             waitingMessage.style.display = 'none';
@@ -452,9 +457,11 @@
             
             const playerName = myPlayer === 'X' ? 'Your' : "Opponent's";
             status.textContent = playerName + ' Turn';
+            console.log('Game active:', gameActive, 'Current player:', currentPlayer, 'My player:', myPlayer);
         });
 
         socket.on('moveMade', ({ index, player, board: newBoard, nextPlayer }) => {
+            console.log('Move made at index:', index, 'by player:', player, 'Next player:', nextPlayer);
             board = newBoard;
             const cell = cells[index];
             cell.textContent = player;
@@ -468,18 +475,22 @@
             
             const playerName = myPlayer === nextPlayer ? 'Your' : "Opponent's";
             status.textContent = playerName + ' Turn';
+            console.log('After move - Current player:', currentPlayer, 'My player:', myPlayer, 'My turn?', currentPlayer === myPlayer);
         });
 
         socket.on('gameReset', () => {
+            console.log('Game reset');
             resetGame();
         });
 
         socket.on('playerDisconnected', () => {
+            console.log('Player disconnected');
             status.textContent = 'Opponent disconnected';
             gameActive = false;
         });
 
         socket.on('error', (message) => {
+            console.error('Socket error:', message);
             alert(message);
         });
 
@@ -487,6 +498,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const gameCode = urlParams.get('game');
         if (gameCode) {
+            console.log('Joining game from URL:', gameCode);
             setMode('online');
             setTimeout(() => {
                 gameCodeInput.value = gameCode;
@@ -495,12 +507,14 @@
         }
 
         createGameBtn.addEventListener('click', () => {
+            console.log('Creating game...');
             socket.emit('createGame');
         });
 
         joinGameBtn.addEventListener('click', () => {
             const code = gameCodeInput.value.trim().toUpperCase();
             if (code) {
+                console.log('Joining game:', code);
                 socket.emit('joinGame', code);
             } else {
                 alert('Please enter a game code');
@@ -519,18 +533,24 @@
             const cell = e.target;
             const index = parseInt(cell.getAttribute('data-index'));
             
+            console.log('Cell clicked:', index, 'Mode:', gameMode, 'Game active:', gameActive);
+            
             if (board[index] !== '' || !gameActive) {
+                console.log('Click rejected - cell occupied or game not active');
                 return;
             }
 
             if (gameMode === 'online') {
+                console.log('Online mode - checking turn. Current player:', currentPlayer, 'My player:', myPlayer, 'Started:', onlineGameStarted);
                 if (!onlineGameStarted) {
+                    console.log('Game not started yet');
                     return;
                 }
-                // Only allow move if it's my turn
                 if (currentPlayer !== myPlayer) {
+                    console.log('Not my turn!');
                     return;
                 }
+                console.log('Emitting move to server');
                 socket.emit('makeMove', { gameId: currentGameId, index });
                 return;
             }
