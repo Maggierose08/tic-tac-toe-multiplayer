@@ -425,6 +425,7 @@
             gameLink.style.display = 'block';
             waitingMessage.style.display = 'block';
             status.textContent = 'Waiting for opponent...';
+            gameActive = false; // Don't allow moves until opponent joins
         });
 
         socket.on('gameJoined', ({ gameId, player }) => {
@@ -437,9 +438,20 @@
 
         socket.on('gameStart', () => {
             onlineGameStarted = true;
+            gameActive = true;
             waitingMessage.style.display = 'none';
-            resetGame();
-            status.textContent = "Player X's Turn";
+            currentPlayer = 'X';
+            board = ['', '', '', '', '', '', '', '', ''];
+            
+            // Reset all cells
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o', 'winner');
+                cell.disabled = false;
+            });
+            
+            const playerName = myPlayer === 'X' ? 'Your' : "Opponent's";
+            status.textContent = playerName + ' Turn';
         });
 
         socket.on('moveMade', ({ index, player, board: newBoard, nextPlayer }) => {
@@ -447,7 +459,6 @@
             const cell = cells[index];
             cell.textContent = player;
             cell.classList.add(player.toLowerCase());
-            cell.disabled = true;
             
             currentPlayer = nextPlayer;
             
@@ -455,7 +466,7 @@
                 return;
             }
             
-            const playerName = myPlayer === nextPlayer ? 'Your' : 'Opponent\'s';
+            const playerName = myPlayer === nextPlayer ? 'Your' : "Opponent's";
             status.textContent = playerName + ' Turn';
         });
 
@@ -466,7 +477,6 @@
         socket.on('playerDisconnected', () => {
             status.textContent = 'Opponent disconnected';
             gameActive = false;
-            cells.forEach(cell => cell.disabled = true);
         });
 
         socket.on('error', (message) => {
@@ -478,8 +488,10 @@
         const gameCode = urlParams.get('game');
         if (gameCode) {
             setMode('online');
-            gameCodeInput.value = gameCode;
-            joinGameBtn.click();
+            setTimeout(() => {
+                gameCodeInput.value = gameCode;
+                joinGameBtn.click();
+            }, 100);
         }
 
         createGameBtn.addEventListener('click', () => {
@@ -515,6 +527,7 @@
                 if (!onlineGameStarted) {
                     return;
                 }
+                // Only allow move if it's my turn
                 if (currentPlayer !== myPlayer) {
                     return;
                 }
@@ -533,7 +546,6 @@
             board[index] = currentPlayer;
             cell.textContent = currentPlayer;
             cell.classList.add(currentPlayer.toLowerCase());
-            cell.disabled = true;
             
             checkResult();
         }
@@ -636,7 +648,6 @@
                     }
                     
                     gameActive = false;
-                    cells.forEach(cell => cell.disabled = true);
                     scores[winner]++;
                     updateScoreboard();
                     return true;
@@ -681,7 +692,7 @@
             gameActive = true;
             
             if (gameMode === 'online' && onlineGameStarted) {
-                const playerName = myPlayer === 'X' ? 'Your' : 'Opponent\'s';
+                const playerName = myPlayer === 'X' ? 'Your' : "Opponent's";
                 status.textContent = playerName + ' Turn';
             } else {
                 status.textContent = "Player X's Turn";
